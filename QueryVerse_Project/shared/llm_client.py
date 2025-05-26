@@ -1,4 +1,4 @@
-from modules.query-optimizer.ollama_helpers import call_ollama
+from modules.query_optimizer.ollama_helpers import call_ollama
 
 def generate_sql_optimization(prompt):
     return call_ollama(prompt)
