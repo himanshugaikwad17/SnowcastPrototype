@@ -4,28 +4,41 @@ import snowflake.connector
 from modules.query_optimizer import streamlit_page as query_optimizer
 
 # --- Page Config ---
-st.set_page_config(page_title="QueryVerse Home", layout="wide")
+st.set_page_config(page_title="QueryVerse", layout="wide")
 
-# --- Sidebar Navigation ---
-st.sidebar.title("🔷 QueryVerse Modules")
-selected_tab = st.sidebar.radio(
-    "Navigate",
-    [
-        "🏠 Home",
-        "🧩 Connection",
-        "🧠 Query Optimizer",
-        "🔍 Anomaly Detection",
-        "📉 Cost Forecasting"
-    ],
-    label_visibility="collapsed"
-)
+# --- Sidebar (like dbt style) ---
+with st.sidebar:
+    st.markdown("<h2 style='color:#4CAF50;'>⚡ QueryVerse</h2>", unsafe_allow_html=True)
+    
+    st.markdown("#### 🧭 Navigation")
+    selected_tab = st.radio(
+        "Navigate",
+        [
+            "🏠 Home",
+            "🧩 Connection",
+            "🧠 Query Optimizer",
+            "🔍 Anomaly Detection",
+            "📉 Cost Forecasting"
+        ],
+        label_visibility="collapsed"
+    )
 
-# --- MAIN DISPLAY PANEL ---
-st.markdown("<h1 style='text-align: center; color: cyan;'>🚀 QueryVerse</h1>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("#### ⚙️ Settings")
+    st.markdown("- Profile")
+    st.markdown("- API Tokens")
+    st.markdown("- Help & Support")
 
-# --- 1. HOME TAB ---
+    st.markdown("---")
+    st.markdown("👤 **Himanshu Gaikwad**", unsafe_allow_html=True)
+
+# --- MAIN PANEL ---
+st.markdown(f"<h1 style='text-align: center; color: #1976D2;'>🚀 {selected_tab}</h1>", unsafe_allow_html=True)
+
+# --- HOME TAB ---
 if selected_tab == "🏠 Home":
-    st.markdown("Start your day with a quick view of query health, cost, and system anomalies.", unsafe_allow_html=True)
+    st.markdown("Welcome to **QueryVerse**! Begin by configuring your connection or selecting a module.")
+
     st.markdown("## 📊 System Snapshot")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -34,13 +47,11 @@ if selected_tab == "🏠 Home":
         st.metric("Estimated Cost (₹)", f"₹{random.uniform(3000, 5000):,.2f}")
     with col3:
         st.metric("Anomalies Detected", random.randint(5, 15))
-    st.success("Welcome to QueryVerse!")
 
-# --- 2. CONNECTION TAB ---
+# --- CONNECTION TAB ---
 elif selected_tab == "🧩 Connection":
     st.subheader("🧩 Snowflake Connection Settings")
 
-    # Load from session if available
     config = st.session_state.get("snowflake_config", {})
 
     sf_account = st.text_input("Account", value=config.get("account", ""))
@@ -80,18 +91,18 @@ elif selected_tab == "🧩 Connection":
         except Exception as e:
             st.error(f"❌ Connection failed: {e}")
 
-# --- 3. QUERY OPTIMIZER TAB ---
+# --- QUERY OPTIMIZER TAB ---
 elif selected_tab == "🧠 Query Optimizer":
     query_optimizer.render()
 
-# --- 4. ANOMALY DETECTION TAB ---
+# --- ANOMALY DETECTION (COMING SOON) ---
 elif selected_tab == "🔍 Anomaly Detection":
     st.info("🚧 Anomaly Detection module is under development.")
 
-# --- 5. COST FORECASTING TAB ---
+# --- COST FORECASTING (COMING SOON) ---
 elif selected_tab == "📉 Cost Forecasting":
     st.info("📊 Cost Forecasting module is under development.")
 
-# --- Footer ---
+# --- FOOTER ---
 st.markdown("---")
 st.caption("QueryVerse MVP v0.1 • Spark & Himanshu | Powered by Krishnity")

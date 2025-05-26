@@ -98,20 +98,28 @@ def render():
         else:
             st.error("Only SELECT queries are allowed for optimization and EXPLAIN analysis.")
 
-    # --- Show Results if Available ---
-    if "original_plan" in st.session_state:
-        st.markdown("### EXPLAIN Plan (Original Query)")
-        st.code(st.session_state["original_plan"], language="sql")
+    # --- Side-by-Side View ---
+    if "original_plan" in st.session_state and "optimized_plan" in st.session_state:
+        st.markdown("### 🔍 EXPLAIN Plan Comparison")
 
-    if "optimized_query" in st.session_state:
-        st.markdown("### Optimized SQL Query")
-        st.code(st.session_state["optimized_query"], language="sql")
+        col1, col2 = st.columns(2)
 
-    if "optimized_plan" in st.session_state:
-        st.markdown("### EXPLAIN Plan (Optimized Query)")
-        st.code(st.session_state["optimized_plan"], language="sql")
+        with col1:
+            st.markdown("#### 📝 Original Query")
+            st.code(st.session_state["user_query"], language="sql")
 
+            st.markdown("#### 🧮 EXPLAIN Plan (Original)")
+            st.code(st.session_state["original_plan"], language="sql")
+
+        with col2:
+            st.markdown("#### ✨ Optimized Query")
+            st.code(st.session_state["optimized_query"], language="sql")
+
+            st.markdown("#### ⚙️ EXPLAIN Plan (Optimized)")
+            st.code(st.session_state["optimized_plan"], language="sql")
+
+    # --- LLM Summary ---
     if "comparison_summary" in st.session_state:
-        st.markdown("### LLM-Based EXPLAIN Plan Comparison Summary")
+        st.markdown("### 🤖 LLM-Based Summary")
         st.markdown(st.session_state["comparison_summary"])
 
