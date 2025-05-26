@@ -49,33 +49,69 @@ def optimize_sql_with_ollama(query, table):
 def render():
     st.header("🧠 Query Optimizer")
     st.markdown("### Enter your Snowflake SQL query:")
-    user_query = st.text_area("SQL Query", height=200)
-    table_name = st.text_input("Target Table Name", value="DEMO_SALES")
 
+    # --- Persistent Input Fields ---
+    user_query = st.text_area(
+        "SQL Query",
+        height=200,
+        value=st.session_state.get("user_query", "")
+    )
+    st.session_state["user_query"] = user_query
+
+    table_name = st.text_input(
+        "Target Table Name",
+        value=st.session_state.get("table_name", "DEMO_SALES")
+    )
+    st.session_state["table_name"] = table_name
+
+    # --- Clear Button ---
+    if st.button("Clear"):
+        for key in [
+            "user_query", "table_name",
+            "original_plan", "optimized_query",
+            "optimized_plan", "comparison_summary"
+        ]:
+            st.session_state.pop(key, None)
+        st.experimental_rerun()
+
+    # --- Analyze and Optimize ---
     if st.button("Analyze and Optimize"):
         if user_query.strip().lower().startswith("select"):
             with st.spinner("Running EXPLAIN plan on original query..."):
                 original_plan = get_explain_plan(user_query)
-                st.markdown("### EXPLAIN Plan (Original Query)")
-                st.code(original_plan, language="sql")
+                st.session_state["original_plan"] = original_plan
 
             with st.spinner("Contacting Mistral via Ollama to optimize query..."):
                 optimized_query = optimize_sql_with_ollama(user_query, table_name)
-                st.markdown("### Optimized SQL Query")
-                st.code(optimized_query, language="sql")
+                st.session_state["optimized_query"] = optimized_query
 
             if optimized_query.lower().startswith("select"):
                 with st.spinner("Running EXPLAIN plan on optimized query..."):
                     optimized_plan = get_explain_plan(optimized_query)
-                    st.markdown("### EXPLAIN Plan (Optimized Query)")
-                    st.code(optimized_plan, language="sql")
+                    st.session_state["optimized_plan"] = optimized_plan
 
                 with st.spinner("Comparing EXPLAIN plans using Mistral..."):
                     comparison_summary = compare_explain_plans(original_plan, optimized_plan)
-                    st.markdown("### LLM-Based EXPLAIN Plan Comparison Summary")
-                    st.markdown(comparison_summary)
+                    st.session_state["comparison_summary"] = comparison_summary
             else:
                 st.warning("Optimized query is not a valid SELECT statement.")
         else:
             st.error("Only SELECT queries are allowed for optimization and EXPLAIN analysis.")
+
+    # --- Show Results if Available ---
+    if "original_plan" in st.session_state:
+        st.markdown("### EXPLAIN Plan (Original Query)")
+        st.code(st.session_state["original_plan"], language="sql")
+
+    if "optimized_query" in st.session_state:
+        st.markdown("### Optimized SQL Query")
+        st.code(st.session_state["optimized_query"], language="sql")
+
+    if "optimized_plan" in st.session_state:
+        st.markdown("### EXPLAIN Plan (Optimized Query)")
+        st.code(st.session_state["optimized_plan"], language="sql")
+
+    if "comparison_summary" in st.session_state:
+        st.markdown("### LLM-Based EXPLAIN Plan Comparison Summary")
+        st.markdown(st.session_state["comparison_summary"])
 
