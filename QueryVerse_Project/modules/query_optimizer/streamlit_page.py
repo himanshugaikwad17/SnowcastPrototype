@@ -72,7 +72,9 @@ def render():
             "optimized_plan", "comparison_summary"
         ]:
             st.session_state.pop(key, None)
-        st.experimental_rerun()
+        st.success("Reset complete. Refreshing...")
+        st.stop()
+
 
     # --- Analyze and Optimize ---
     if st.button("Analyze and Optimize"):
