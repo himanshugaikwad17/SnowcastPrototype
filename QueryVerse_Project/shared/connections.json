@@ -1,0 +1,26 @@
+{
+    "Snowflake Trial": {
+        "auth_method": "Username/Password",
+        "account": "TPBJBVN-YZ63291",
+        "user": "himanshugaikwadsnowflake052025",
+        "password": "Two1704*states",
+        "private_key_content": "",
+        "private_key_passphrase": "",
+        "warehouse": "COMPUTE_WH",
+        "database": "QUERYVERSE_DEMO",
+        "schema": "STAGING",
+        "role": ""
+    },
+    "Vistra": {
+        "auth_method": "Private Key Pair",
+        "account": "vistra.us-east-1",
+        "user": "HG311628",
+        "password": "",
+        "private_key_content": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDJR+32Z2uJ756v\nAi+bga9t3qo13d1I66Axhz7LR7LEXR2h0HCCKUIVtFVUg6VwLK635NGTznCvi+7G\nDj+8czOcyJeGBXOrkO27l6mJMfJLTJZWxnS6qL5AdrUjs19rRvaxv1rmCsYCRV45\nZ+QTj3IFg+7F03DPaCaORKoQDZ24nR20vqx7aFk42cGlRTfgzcg0l7abzaSJdL9b\nk9qf9A9LRd59ycRW+wKdg+44LMEJe4Na/LB4QXElS+5coms3XjcgNCI7H0Tlj3TH\n1bKSpJN3HWyUUwqD9SIcGZac6Pk2KSOq5XXdlvfdvDVNkvlNQxbhiMG6ckGZIOx9\npc+J/bGlAgMBAAECggEBAMVeQenXOWz1SS2kwBgFT4c1ysOtPVpOqjNGwf1E3feM\nswzDvj7zw/hSb0XDHQtk1SI/Pn5n9Lk+RrFwsXDRqe94BpSFbgnywBqtubFtB4Bs\nphKK4VVTN9MwU6ihL9SarjZXRAPE1qrNaHpz9AJ2K0FbQFw9XCYUo5HnpLa/E0Q9\nFlSPivSBeXKMQVHR8/DK0UP30n9X/3tueXtaQEV7EC682AOd5F4KiAjVWGYrFw0+\nVWV7kn5YKuQGlAoccJUwp0+u9+qaGKDyuDxxMe0wj9cICc25vrAyD4WpMyTbZUAr\nZc0Am4v5xz5peG9XoRqf1gngAzgxYAnnBOBglGQTh+ECgYEA79w3vrcwq196wEBp\nV3mnozHFQgQRlH0GsZW+dPKmWDwuRMU2i23gtBMzEu6J8Dsy2J1LW2/CxPvmu7b2\nYXdfvFtx1z5XGnMNg28BOlCnkas5WRnS2M+jy6i/bXPC3O9ETKpEzykgHMGk6xlE\n+B11eEEsGnPSvxpPtRBpJlFVAtkCgYEA1tMnVeX7JOA6ZoCPWhyex9W0AbdTqhX5\nj5R+UALVspcRvdWyH5Y+YNXtd9SOH7E5yRnYnGBX2eGMddIDC7cjM+Do/9yjT/T8\nazGRz2oAfhlpsAxNrA/Rl38Uw0NkED15WYU/uSqvZxPp6batPEp0NFUWSUT0n4DI\n8YIpQPJ7za0CgYBqbjTuEystX7iABhS4E+smprb4jAWg9bk6o09XZTQagtmk+j0x\nsRe7z6kiBWZ/ikUNiP4fHIA4F+5R7OV2ahm44nqpH6hWvCaK436P+anhITDZMHQ2\ncCwl+kK2tl8I2cJcolDV+1GccPBUwWmxDqFJMuH2+t3QnkQv+5AsyHoIQQKBgQDF\nq+Y2FDjT5b/XMdS2hj9Ugj/wlFBX4YCRrYHM/c7FVlzs4QXWKtmbIT4xVVSxtNIH\nSdEXk09DHVex0l0bGpk502qShOOBX1wlBqe0w0VQwvGNHMUb3jJtxHHGeuxIRUi0\nJvhL2gssPhavB3jAUYI75U9sfBbb7hT4pVxwdq+UwQKBgGTXF9ptb6COeOoV2QeB\nxIXxbdh476HNRD/1440b5awoNKJTYjg7qVn+RQFg403gTHk5aY1hb1e3z3ck0XWh\nxpbKiNKfsaCBQWcn5k153GK4ORgqPTFx4QjjVXWjQTHoRCRY67i2NbJ2k0uBN7+z\n/irFkL+bdB9vUlPDxSC34WeS\n-----END PRIVATE KEY-----\n",
+        "private_key_passphrase": "",
+        "warehouse": "EME_ETL_PRD_WHS",
+        "database": "WHOLESALE_DEV",
+        "schema": "WPDM_STAGING",
+        "role": ""
+    }
+}
