@@ -5,6 +5,8 @@ import os
 import snowflake.connector
 from modules.query_optimizer import streamlit_page as query_optimizer
 
+
+
 # --- Persistent storage path ---
 CONN_FILE = "shared/connections.json"
 

@@ -1,7 +1,8 @@
 import streamlit as st
 import re
 from shared.snowflake_connector import get_connection
-from shared.llm_client import call_ollama, compare_explain_plans
+from llm.ollama_helpers import call_llm  # Unified LLM caller
+from shared.llm_client import compare_explain_plans
 
 # --- HELPER FUNCTIONS ---
 
@@ -17,29 +18,18 @@ def get_explain_plan(query):
     finally:
         cursor.close()
 
-import re
-import streamlit as st
-from shared.snowflake_connector import get_connection
-
 def get_table_columns(query: str):
-    """
-    Attempts to extract the correct table name from the SQL query and then runs DESC TABLE on it.
-    """
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        # Attempt to extract the full table name from the SQL query
         match = re.search(r"from\s+([a-zA-Z0-9_\.]+)", query, re.IGNORECASE)
         table_name = match.group(1) if match else None
-
         if not table_name:
             return []
 
-        # If the table name is already fully qualified
         if table_name.count(".") == 2:
             desc_target = table_name
         else:
-            # Fallback to session context
             conn_details = st.session_state.get("_active_conn")
             desc_target = f"{conn_details['database']}.{conn_details['schema']}.{table_name}"
 
@@ -52,12 +42,14 @@ def get_table_columns(query: str):
         cursor.close()
 
 def clean_optimized_query(sql: str) -> str:
-    """
-    Removes invalid ORDER BY clauses that reference non-existent or escaped pseudo-columns like \_row\_key\_\_
-    """
-    # Strip invalid ORDER BY clauses with \_row\_key\_\_ or similar
-    sql = re.sub(r"ORDER BY\s+\\?_row\\?_key\\?_+.*?(FETCH|LIMIT|OFFSET|;)", r"\1", sql, flags=re.IGNORECASE)
-    return sql.strip()
+    sql = sql.strip()
+
+    # Remove invalid combination of TOP + LIMIT
+    if "TOP" in sql.upper() and "LIMIT" in sql.upper():
+        sql = re.sub(r"LIMIT\s+\d+", "", sql, flags=re.IGNORECASE)
+
+    # Fix spacing and trailing semicolons
+    return sql.replace(";;", ";").strip()
 
 
 def extract_sql_only(text):
@@ -71,23 +63,24 @@ def optimize_sql_with_ollama(query, _):
     prompt = f"""
 You are a Snowflake SQL performance expert.
 
-Given the following SQL query, optimize it for:
-- Better performance
-- Lower warehouse credit cost
-- Query plan simplification
+Optimize the following SQL query strictly for Snowflake syntax.
+Avoid using LIMIT inside subqueries if TOP is used.
 
-DO NOT return any explanation, comments, or annotations.
-
-Only respond with the **complete optimized SELECT SQL query**.
+Your output must:
+- Improve performance
+- Use only valid Snowflake SQL syntax
+- Contain no explanations or comments
+- Return ONLY a complete SELECT SQL query
 
 {schema_hint}
 Original query:
 {query.strip()}
 """
-    raw = call_ollama(prompt, model="mistral")
-    optimized = extract_sql_only(raw)
-    return clean_optimized_query(optimized)
 
+    raw = call_llm(prompt, model="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", provider="together")
+    optimized = extract_sql_only(raw)
+    print("\n🔍 Raw LLM Response:\n", raw, "\n")
+    return clean_optimized_query(optimized)
 
 # --- MAIN MODULE FUNCTION ---
 
@@ -96,7 +89,7 @@ def render(connection):
         st.error("❌ Snowflake connection not configured. Please set it from the 'Connection' tab.")
         return
 
-    st.session_state["_active_conn"] = connection  # lightweight reference only
+    st.session_state["_active_conn"] = connection
 
     required_keys = ["account", "user", "warehouse", "database", "schema"]
     if any(k not in connection or not connection[k] for k in required_keys):
@@ -163,11 +156,7 @@ def render(connection):
     table_name = st.text_input("Target Table Name", value=st.session_state["table_name"])
 
     if st.button("Clear"):
-        for key in [
-            "user_query", "table_name",
-            "original_plan", "optimized_query",
-            "optimized_plan", "comparison_summary"
-        ]:
+        for key in ["user_query", "table_name", "original_plan", "optimized_query", "optimized_plan", "comparison_summary"]:
             st.session_state.pop(key, None)
         st.success("Reset complete. Refreshing...")
         st.stop()
@@ -181,7 +170,7 @@ def render(connection):
                 original_plan = get_explain_plan(user_query)
                 st.session_state["original_plan"] = original_plan
 
-            with st.spinner("Contacting Mistral via Ollama to optimize query..."):
+            with st.spinner("Contacting Together AI to optimize query..."):
                 optimized_query = optimize_sql_with_ollama(user_query, table_name)
                 st.session_state["optimized_query"] = optimized_query
 
@@ -190,7 +179,7 @@ def render(connection):
                     optimized_plan = get_explain_plan(optimized_query)
                     st.session_state["optimized_plan"] = optimized_plan
 
-                with st.spinner("Comparing EXPLAIN plans using Mistral..."):
+                with st.spinner("Comparing EXPLAIN plans using Together AI..."):
                     comparison_summary = compare_explain_plans(original_plan, optimized_plan)
                     st.session_state["comparison_summary"] = comparison_summary
             else:
