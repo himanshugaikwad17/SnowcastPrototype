@@ -5,7 +5,7 @@ headers = {
 }
 
 data = {
-    "model": "llama3-70b-8192",  # or llama3-8b-8192
+    "model": "meta-llama/llama-4-maverick-17b-128e-instruct",  # or llama3-8b-8192
     "messages": [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Explain how Snowflake caching works."}

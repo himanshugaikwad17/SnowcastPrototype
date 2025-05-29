@@ -77,7 +77,8 @@ Original query:
 {query.strip()}
 """
 
-    raw = call_llm(prompt, model="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", provider="together")
+    #raw = call_llm(prompt, model="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", provider="groq")
+    raw = call_llm(prompt, model="meta-llama/llama-4-maverick-17b-128e-instruct", provider="groq")
     optimized = extract_sql_only(raw)
     print("\n🔍 Raw LLM Response:\n", raw, "\n")
     return clean_optimized_query(optimized)
