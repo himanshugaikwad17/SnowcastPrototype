@@ -25,11 +25,11 @@ if "snowflake_connections" not in st.session_state:
     st.session_state.snowflake_connections = load_connections()
 
 # --- Page Config ---
-st.set_page_config(page_title="QueryVerse", layout="wide")
+st.set_page_config(page_title="OptiVerse", layout="wide")
 
 # --- Sidebar ---
 with st.sidebar:
-    st.markdown("<h2 style='color:#4CAF50;'>⚡ QueryVerse</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#4CAF50;'>⚡ OptiVerse</h2>", unsafe_allow_html=True)
 
     st.markdown("#### 🧭 Navigation")
     selected_tab = st.radio(
@@ -58,7 +58,7 @@ st.markdown(f"<h1 style='text-align: center; color: #1976D2;'>🚀 {selected_tab
 
 # --- HOME TAB ---
 if selected_tab == "🏠 Home":
-    st.markdown("Welcome to **QueryVerse**! Begin by configuring your connection or selecting a module.")
+    st.markdown("Welcome to **OptiVerse**! Begin by configuring your connection or selecting a module.")
 
     st.markdown("## 📊 System Snapshot")
     col1, col2, col3 = st.columns(3)
@@ -225,4 +225,4 @@ elif selected_tab == "📉 Cost Forecasting":
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("QueryVerse MVP v0.1 • Spark & Himanshu | Powered by Krishnity")
+st.caption("OptiVerse MVP v0.1 • Spark & Himanshu | Powered by Krishnity")
