@@ -24,8 +24,6 @@ def save_connections(connections):
 if "snowflake_connections" not in st.session_state:
     st.session_state.snowflake_connections = load_connections()
 
-# --- Page Config ---
-st.set_page_config(page_title="OptiVerse", layout="wide")
 
 # --- Sidebar ---
 with st.sidebar:

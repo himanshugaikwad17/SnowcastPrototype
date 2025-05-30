@@ -1,4 +1,5 @@
 import streamlit as st
+st.set_page_config(page_title="OptiVerse", layout="wide")
 import random
 from datetime import datetime
 from modules.api_config.config_manager import get_snowflake_connections, get_api_credentials
@@ -7,11 +8,11 @@ from shared.snowflake_connector import connect_to_snowflake
 # Import page modules
 from modules.query_optimizer import streamlit_page as query_optimizer
 from modules.api_config import streamlit_page as api_config
+from modules.stale_tables import stale_tables_page
 
 
 llm_creds = get_api_credentials()
 available_providers = list(llm_creds.keys())
-
 st.markdown(
     """
     <div style='position: absolute; top: 10px; left: 15px; font-size: 14px; font-weight: bold; color: #6c757d;'>
@@ -71,7 +72,7 @@ st.markdown("""
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    nav_options = ["Home", "Connections", "Query Optimizer", "API Configuration", "Anomaly Detection", "Cost Forecasting"]
+    nav_options = ["Home", "Connections", "Query Optimizer", "API Configuration", "Anomaly Detection", "Cost Forecasting","Stale table detection"]
     for option in nav_options:
         css_class = "active" if option == st.session_state.selected_tab else ""
         if st.button(option, key=option):
@@ -168,6 +169,15 @@ elif selected_tab == "Anomaly Detection":
 
 elif selected_tab == "Cost Forecasting":
     st.info("Cost Forecasting module is under development.")
+elif selected_tab == "Stale table detection":
+    conn_name = st.session_state.active_connection_name
+    conn_dict = st.session_state.snowflake_connections.get(conn_name)
+    if conn_dict:
+        stale_tables_page.render(conn_dict)
+    else:
+        st.error("❌ No active Snowflake connection. Please connect from the 'Connections' tab.")
+
+
 
 # --- FOOTER ---
 st.markdown("---")
