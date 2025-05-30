@@ -1,13 +1,8 @@
-import streamlit as st
 import snowflake.connector
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
-def get_connection():
-    conn_details = st.session_state.get("_active_conn")
-    if not conn_details:
-        raise ValueError("Snowflake connection not found in session.")
-
+def connect_to_snowflake(conn_details):
     if conn_details["auth_method"] == "Username/Password":
         return snowflake.connector.connect(
             user=conn_details["user"],

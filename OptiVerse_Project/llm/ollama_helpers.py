@@ -1,35 +1,19 @@
-import os
 import requests
 from together import Together
-from dotenv import load_dotenv
+from modules.api_config.config_manager import get_api_credentials
 
-load_dotenv()
-
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 OLLAMA_URL = "http://localhost:11434"
 TIMEOUT_MS = 10000
 
-# Load Together client
-together_client = Together(api_key=TOGETHER_API_KEY)
-
-def is_ollama_up(timeout=TIMEOUT_MS) -> bool:
-    try:
-        response = requests.get(OLLAMA_URL, timeout=timeout / 1000)
-        return response.status_code == 200
-    except requests.exceptions.RequestException:
-        return False
-
-def call_llm(prompt: str, model: str = "mistralai/Mistral-7B-Instruct-v0.1", provider: str = "together") -> str:
-    """
-    Unified LLM calling function.
-    Providers: 'ollama', 'together', 'groq'
-    """
+# Unified LLM call
+def call_llm(prompt: str, model: str, provider: str = "together") -> str:
     provider = provider.lower()
+    creds = get_api_credentials().get(provider, {})
+    api_key = creds.get("api_key", "")
 
     if provider == "ollama":
         if not is_ollama_up():
-            return "❌ Ollama is not running. Please start it with: `ollama run mistral`"
+            return "❌ Ollama is not running. Please start it with: `ollama run model-name`"
         try:
             response = requests.post(
                 f"{OLLAMA_URL}/api/generate",
@@ -46,7 +30,8 @@ def call_llm(prompt: str, model: str = "mistralai/Mistral-7B-Instruct-v0.1", pro
 
     elif provider == "together":
         try:
-            response = together_client.chat.completions.create(
+            client = Together(api_key=api_key)
+            response = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 stream=False
@@ -57,7 +42,7 @@ def call_llm(prompt: str, model: str = "mistralai/Mistral-7B-Instruct-v0.1", pro
 
     elif provider == "groq":
         try:
-            headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+            headers = {"Authorization": f"Bearer {api_key}"}
             payload = {
                 "model": model,
                 "messages": [
@@ -66,7 +51,6 @@ def call_llm(prompt: str, model: str = "mistralai/Mistral-7B-Instruct-v0.1", pro
                 ]
             }
             response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
-
             if response.status_code == 200:
                 return response.json()["choices"][0]["message"]["content"].strip()
             else:
@@ -75,3 +59,10 @@ def call_llm(prompt: str, model: str = "mistralai/Mistral-7B-Instruct-v0.1", pro
             return f"❌ Groq request failed: {e}"
 
     return "⚠️ Unknown provider specified. Use 'together', 'groq', or 'ollama'."
+
+def is_ollama_up(timeout=TIMEOUT_MS) -> bool:
+    try:
+        response = requests.get(OLLAMA_URL, timeout=timeout / 1000)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False

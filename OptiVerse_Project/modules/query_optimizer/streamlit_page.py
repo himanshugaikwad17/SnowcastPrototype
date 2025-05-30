@@ -1,13 +1,15 @@
 import streamlit as st
 import re
-from shared.snowflake_connector import get_connection
-from llm.ollama_helpers import call_llm  # Unified LLM caller
+import html
+from shared.snowflake_connector import connect_to_snowflake
+from llm.ollama_helpers import call_llm
 from shared.llm_client import compare_explain_plans
+from modules.api_config.config_manager import get_api_credentials
 
-# --- HELPER FUNCTIONS ---
+# --- Helper Functions ---
 
 def get_explain_plan(query):
-    conn = get_connection()
+    conn = connect_to_snowflake(st.session_state.get("_active_conn"))
     cursor = conn.cursor()
     try:
         cursor.execute(f"EXPLAIN USING TEXT {query}")
@@ -17,22 +19,18 @@ def get_explain_plan(query):
         return f"Error: {e}"
     finally:
         cursor.close()
+        conn.close()
 
 def get_table_columns(query: str):
-    conn = get_connection()
+    conn = connect_to_snowflake(st.session_state.get("_active_conn"))
     cursor = conn.cursor()
     try:
         match = re.search(r"from\s+([a-zA-Z0-9_\.]+)", query, re.IGNORECASE)
         table_name = match.group(1) if match else None
         if not table_name:
             return []
-
-        if table_name.count(".") == 2:
-            desc_target = table_name
-        else:
-            conn_details = st.session_state.get("_active_conn")
-            desc_target = f"{conn_details['database']}.{conn_details['schema']}.{table_name}"
-
+        conn_details = st.session_state.get("_active_conn")
+        desc_target = table_name if table_name.count(".") == 2 else f"{conn_details['database']}.{conn_details['schema']}.{table_name}"
         cursor.execute(f"DESC TABLE {desc_target}")
         return [row[0] for row in cursor.fetchall()]
     except Exception as e:
@@ -40,50 +38,91 @@ def get_table_columns(query: str):
         return []
     finally:
         cursor.close()
+        conn.close()
 
 def clean_optimized_query(sql: str) -> str:
     sql = sql.strip()
-
-    # Remove invalid combination of TOP + LIMIT
-    if "TOP" in sql.upper() and "LIMIT" in sql.upper():
-        sql = re.sub(r"LIMIT\s+\d+", "", sql, flags=re.IGNORECASE)
-
-    # Fix spacing and trailing semicolons
+    if "TOP" in sql.upper() or "LIMIT" in sql.upper():
+        sql = re.sub(r"\bTOP\s+\d+\b", "", sql, flags=re.IGNORECASE)
+        sql = re.sub(r"\bLIMIT\s+\d+\b", "", sql, flags=re.IGNORECASE)
     return sql.replace(";;", ";").strip()
 
+def extract_sql_only(text: str) -> str:
+    text = re.sub(r"```(?:sql)?", "", text, flags=re.IGNORECASE).replace("```", "").strip()
+    match = re.search(r"(?is)\b(select|with)\b[\s\S]+", text)
+    return match.group(0).strip() if match else text
 
-def extract_sql_only(text):
-    text = re.sub(r'\\([.*])', r'\1', text.strip())
-    match = re.search(r"(?is)(select .*?from .*?;)(?=\s|$)", text)
-    return match.group(1).strip() if match else text.strip()
+def build_optimization_prompt(query: str, schema_hint: str = "") -> str:
+    return f"""
+You are an expert Snowflake SQL performance engineer.
 
-def optimize_sql_with_ollama(query, _):
-    columns = get_table_columns(query)
-    schema_hint = f"Available columns: {', '.join(columns)}\n" if columns else ""
-    prompt = f"""
-You are a Snowflake SQL performance expert.
+Your task is to optimize the following SQL query for performance using only **valid and executable Snowflake SQL syntax**. Ensure correctness, improve execution speed, and follow all Snowflake best practices.
 
-Optimize the following SQL query strictly for Snowflake syntax.
-Avoid using LIMIT inside subqueries if TOP is used.
+Output:
+- Must return only a complete, executable SQL query (including any WITH/CTE clauses if needed)
+- Must not include explanations, comments, markdown, or surrounding text
 
-Your output must:
-- Improve performance
-- Use only valid Snowflake SQL syntax
-- Contain no explanations or comments
-- Return ONLY a complete SELECT SQL query
+Rules:
+1. ❌ DO NOT use `TOP N` — Snowflake does not support this syntax. Never include `TOP` in any part of the query.
+2. ❌ DO NOT use `LIMIT N` at the end or inside subqueries — instead use `ROW_NUMBER()`, `QUALIFY`, or `FILTERS` to reduce result size.
+3. ✅ Prefer using `QUALIFY ROW_NUMBER() OVER (...) <= N` to limit rows efficiently.
+4. ✅ Ensure deterministic ordering by including a unique key (e.g., `UNIQUE_SURROGATE_KEY`) in `ORDER BY` or `ROW_NUMBER()` functions.
 
 {schema_hint}
-Original query:
+Original SQL Query:
 {query.strip()}
-"""
+""".strip()
 
-    #raw = call_llm(prompt, model="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", provider="groq")
-    raw = call_llm(prompt, model="meta-llama/llama-4-maverick-17b-128e-instruct", provider="groq")
-    optimized = extract_sql_only(raw)
+def optimize_sql_with_ollama(query: str, _) -> str:
+    schema_hint = ""
+    if not query.strip().lower().startswith("with"):
+        columns = get_table_columns(query)
+        schema_hint = f"Available columns: {', '.join(columns)}\n" if columns else ""
+
+    provider = st.session_state.get("llm_provider", "together")
+    model = st.session_state.get("llm_model", "meta-llama/llama-4-scout-17b-16e-instruct")
+    prompt = build_optimization_prompt(query, schema_hint)
+
+    raw = call_llm(prompt, model=model, provider=provider)
+    st.session_state["raw_llm_output"] = raw
     print("\n🔍 Raw LLM Response:\n", raw, "\n")
-    return clean_optimized_query(optimized)
 
-# --- MAIN MODULE FUNCTION ---
+    return clean_optimized_query(extract_sql_only(raw))
+
+# --- UI Helper for Wide SQL Blocks ---
+
+def render_sql_block(title: str, sql_text: str):
+    st.markdown(f"#### {title}")
+    dark_mode = st.get_option("theme.base") == "dark"
+    bg = "#1e1e1e" if dark_mode else "#f9f9f9"
+    fg = "#f1f1f1" if dark_mode else "#1a1a1a"
+    border = "#444" if dark_mode else "#ccc"
+
+    escaped_sql = html.escape(sql_text, quote=False)  # preserve single quotes
+
+    st.markdown(f"""
+<div style="
+    background-color: {bg};
+    color: {fg};
+    border: 1px solid {border};
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    max-height: 400px;
+    max-width: 100%;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    white-space: pre;
+    font-family: monospace;
+    font-size: 14px;
+">
+{escaped_sql}
+</div>
+""", unsafe_allow_html=True)
+
+# --- Main App UI ---
 
 def render(connection):
     if not connection:
@@ -94,116 +133,67 @@ def render(connection):
 
     required_keys = ["account", "user", "warehouse", "database", "schema"]
     if any(k not in connection or not connection[k] for k in required_keys):
-        st.error("❌ Missing required connection fields. Please check your active connection.")
+        st.error("❌ Missing required connection fields.")
         return
 
     try:
-        import snowflake.connector
-        if connection["auth_method"] == "Username/Password":
-            conn = snowflake.connector.connect(
-                user=connection["user"],
-                password=connection["password"],
-                account=connection["account"],
-                warehouse=connection["warehouse"],
-                database=connection["database"],
-                schema=connection["schema"],
-                role=connection.get("role") or None
-            )
-        else:
-            from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.backends import default_backend
-
-            p_key = serialization.load_pem_private_key(
-                connection["private_key_content"].encode(),
-                password=connection["private_key_passphrase"].encode() if connection["private_key_passphrase"] else None,
-                backend=default_backend()
-            )
-
-            pkb = p_key.private_bytes(
-                encoding=serialization.Encoding.DER,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-
-            conn = snowflake.connector.connect(
-                user=connection["user"],
-                private_key=pkb,
-                account=connection["account"],
-                warehouse=connection["warehouse"],
-                database=connection["database"],
-                schema=connection["schema"],
-                role=connection.get("role") or None
-            )
-
+        conn = connect_to_snowflake(connection)
         cur = conn.cursor()
         cur.execute("SELECT CURRENT_USER(), CURRENT_TIMESTAMP()")
         result = cur.fetchone()
         st.success(f"🔌 Connected as **{result[0]}** at **{result[1]}**")
         cur.close()
         conn.close()
-
     except Exception as e:
-        st.error(f"❌ Connection failed in Query Optimizer: {e}")
+        st.error(f"❌ Connection failed: {e}")
 
     st.header("🧠 Query Optimizer")
-    st.markdown("### Enter your Snowflake SQL query:")
 
-    if "user_query" not in st.session_state:
-        st.session_state["user_query"] = ""
-    user_query = st.text_area("SQL Query", height=200, value=st.session_state["user_query"])
-
-    if "table_name" not in st.session_state:
-        st.session_state["table_name"] = "DEMO_SALES"
-    table_name = st.text_input("Target Table Name", value=st.session_state["table_name"])
+    user_query = st.text_area("SQL Query", height=200, value=st.session_state.get("user_query", ""))
+    table_name = st.text_input("Target Table Name", value=st.session_state.get("table_name", "DEMO_SALES"))
 
     if st.button("Clear"):
-        for key in ["user_query", "table_name", "original_plan", "optimized_query", "optimized_plan", "comparison_summary"]:
+        for key in ["user_query", "table_name", "original_plan", "optimized_query", "optimized_plan", "comparison_summary", "raw_llm_output"]:
             st.session_state.pop(key, None)
-        st.success("Reset complete. Refreshing...")
+        st.success("Reset complete.")
         st.stop()
 
     if st.button("Analyze and Optimize"):
         st.session_state["user_query"] = user_query
         st.session_state["table_name"] = table_name
 
-        if user_query.strip().lower().startswith("select"):
-            with st.spinner("Running EXPLAIN plan on original query..."):
-                original_plan = get_explain_plan(user_query)
-                st.session_state["original_plan"] = original_plan
+        if re.match(r"^(select|with)\s", user_query.strip().lower()):
+            original_plan = get_explain_plan(user_query)
+            st.session_state["original_plan"] = original_plan
 
-            with st.spinner("Contacting Together AI to optimize query..."):
-                optimized_query = optimize_sql_with_ollama(user_query, table_name)
-                st.session_state["optimized_query"] = optimized_query
+            optimized_query = optimize_sql_with_ollama(user_query, table_name)
+            st.session_state["optimized_query"] = optimized_query
 
-            if optimized_query.lower().startswith("select"):
-                with st.spinner("Running EXPLAIN plan on optimized query..."):
-                    optimized_plan = get_explain_plan(optimized_query)
-                    st.session_state["optimized_plan"] = optimized_plan
+            if optimized_query.lower().startswith(("select", "with")):
+                optimized_plan = get_explain_plan(optimized_query)
+                st.session_state["optimized_plan"] = optimized_plan
 
-                with st.spinner("Comparing EXPLAIN plans using Together AI..."):
-                    comparison_summary = compare_explain_plans(original_plan, optimized_plan)
-                    st.session_state["comparison_summary"] = comparison_summary
+                comparison_summary = compare_explain_plans(original_plan, optimized_plan)
+                st.session_state["comparison_summary"] = comparison_summary
             else:
-                st.warning("Optimized query is not a valid SELECT statement.")
+                st.warning("Optimized output is not a valid SELECT/WITH query.")
         else:
-            st.error("Only SELECT queries are allowed for optimization and EXPLAIN analysis.")
+            st.error("Only SELECT or WITH queries are supported.")
 
     if "original_plan" in st.session_state and "optimized_plan" in st.session_state:
-        st.markdown("### 🔍 EXPLAIN Plan Comparison")
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown("#### 📝 Original Query")
-            st.code(st.session_state["user_query"], language="sql")
-            st.markdown("#### 🧮 EXPLAIN Plan (Original)")
-            st.code(st.session_state["original_plan"], language="sql")
+            render_sql_block("Original Query", st.session_state["user_query"])
+            render_sql_block("EXPLAIN Plan (Original)", st.session_state["original_plan"])
 
         with col2:
-            st.markdown("#### ✨ Optimized Query")
-            st.code(st.session_state["optimized_query"], language="sql")
-            st.markdown("#### ⚙️ EXPLAIN Plan (Optimized)")
-            st.code(st.session_state["optimized_plan"], language="sql")
+            render_sql_block("Optimized Query", st.session_state["optimized_query"])
+            render_sql_block("EXPLAIN Plan (Optimized)", st.session_state["optimized_plan"])
 
     if "comparison_summary" in st.session_state:
         st.markdown("### 🤖 LLM-Based Summary")
         st.markdown(st.session_state["comparison_summary"])
+
+    if "raw_llm_output" in st.session_state and st.checkbox("Show Raw LLM Output"):
+        st.text_area("Raw LLM Output", value=st.session_state["raw_llm_output"], height=300, key="llm_raw")
