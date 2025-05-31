@@ -9,6 +9,7 @@ from shared.snowflake_connector import connect_to_snowflake
 from modules.query_optimizer import streamlit_page as query_optimizer
 from modules.api_config import streamlit_page as api_config
 from modules.stale_tables import stale_tables_page
+from modules.anomaly_detection import anomaly_detection
 
 
 llm_creds = get_api_credentials()
@@ -165,7 +166,12 @@ elif selected_tab == "API Configuration":
 
 # --- PLACEHOLDER TABS ---
 elif selected_tab == "Anomaly Detection":
-    st.info("Anomaly Detection module is under development.")
+     conn_name = st.session_state.active_connection_name
+     conn_dict = st.session_state.snowflake_connections.get(conn_name)
+     if conn_dict:
+        anomaly_detection.render(conn_dict)
+     else:
+        st.error("❌ No active Snowflake connection. Please connect from the 'Connections' tab.")
 
 elif selected_tab == "Cost Forecasting":
     st.info("Cost Forecasting module is under development.")
