@@ -1,50 +1,30 @@
 import streamlit as st
-st.set_page_config(page_title="OptiVerse", layout="wide")
-import random
 from datetime import datetime
 from modules.api_config.config_manager import get_snowflake_connections, get_api_credentials
 from shared.snowflake_connector import connect_to_snowflake
 
-# Import page modules
+# Page setup
+st.set_page_config(page_title="OptiVerse", layout="wide")
+
+# Import modules
 from modules.query_optimizer import streamlit_page as query_optimizer
 from modules.api_config import streamlit_page as api_config
 from modules.stale_tables import stale_tables_page
 from modules.anomaly_detection import anomaly_detection
 
-
+# Credentials
 llm_creds = get_api_credentials()
 available_providers = list(llm_creds.keys())
+
+# App title
 st.markdown(
-    """
-    <div style='position: absolute; top: 10px; left: 15px; font-size: 14px; font-weight: bold; color: #6c757d;'>
-        OptiVerse
-    </div>
-    """,
+    "<div style='position: absolute; top: 10px; left: 15px; font-size: 14px; font-weight: bold; color: #6c757d;'>"
+    "OptiVerse"
+    "</div>",
     unsafe_allow_html=True
 )
 
-# --- SIDEBAR SECTION ---
-with st.sidebar:
-    st.markdown("## ⚙️ LLM Settings")
-
-    st.selectbox(
-        "LLM Provider",
-        available_providers,
-        index=available_providers.index(st.session_state.get("llm_provider", available_providers[0])),
-        key="llm_provider"
-    )
-
-    selected_model = llm_creds[st.session_state.llm_provider]["model"]
-
-    st.selectbox(
-        "LLM Model",
-        [selected_model],
-        index=0,
-        key="llm_model"
-    )
-
-
-# --- SESSION INIT ---
+# --- Session Initialization ---
 if "snowflake_connections" not in st.session_state:
     st.session_state.snowflake_connections = get_snowflake_connections()
 if "active_connection_name" not in st.session_state:
@@ -62,7 +42,7 @@ st.markdown("""
         .stMetric label, .stMetric div { color: #1f2937; }
         .stSubheader, .stMarkdown h2, .stMarkdown h3 { color: #0f172a; }
         .stButton>button {
-            background-color: #1f2937; color: white; border-radius: 8px; padding: 0.4rem 1rem;
+            background-color: #1f2937; color: white; border-radius: 8px; padding: 0.4rem 1rem; width: 100%; text-align: left;
         }
         .stButton>button:hover {
             background-color: #374151; color: white;
@@ -71,19 +51,49 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR NAVIGATION ---
+# --- Sidebar Section ---
 with st.sidebar:
-    nav_options = ["Home", "Connections", "Query Optimizer", "API Configuration", "Anomaly Detection", "Cost Forecasting","Stale table detection"]
-    for option in nav_options:
-        css_class = "active" if option == st.session_state.selected_tab else ""
-        if st.button(option, key=option):
-            st.session_state.selected_tab = option
+    st.markdown("<h2 style='color: #4B5563; font-size: 18px;'>⚙️ LLM Settings</h2>", unsafe_allow_html=True)
 
-# --- PAGE HEADER ---
+    st.selectbox(
+        "Provider",
+        available_providers,
+        index=available_providers.index(st.session_state.get("llm_provider", available_providers[0])),
+        key="llm_provider"
+    )
+
+    selected_model = llm_creds[st.session_state.llm_provider]["model"]
+
+    st.selectbox(
+        "Model",
+        [selected_model],
+        index=0,
+        key="llm_model"
+    )
+
+    st.markdown("<hr style='margin-top:20px;margin-bottom:10px;'>", unsafe_allow_html=True)
+
+    st.markdown("<h2 style='color: #4B5563; font-size: 18px;'>🧭 Navigation</h2>", unsafe_allow_html=True)
+
+    nav_options = {
+        "Home": "🏠 Home",
+        "Connections": "🔗 Connections",
+        "Query Optimizer": "🧠 Query Optimizer",
+        "API Configuration": "🔧 API Config",
+        "Anomaly Detection": "📊 Anomaly Detection",
+        "Cost Forecasting": "📈 Cost Forecasting",
+        "Stale table detection": "🧹 Stale Table Cleanup"
+    }
+
+    for key, label in nav_options.items():
+        if st.button(label, key=key):
+            st.session_state.selected_tab = key
+
+# --- Page Header ---
 selected_tab = st.session_state.selected_tab
 st.markdown(f"<h2 style='text-align: center; color: #1F2937;'>{selected_tab}</h2>", unsafe_allow_html=True)
 
-# --- TAB: HOME ---
+# --- Home Page ---
 if selected_tab == "Home":
     active_conn_name = st.session_state.active_connection_name
     all_connections = st.session_state.snowflake_connections
@@ -146,12 +156,11 @@ if selected_tab == "Home":
     col7.button("Manage Connections", on_click=lambda: st.session_state.update({"selected_tab": "Connections"}))
     col8.button("API Configuration", on_click=lambda: st.session_state.update({"selected_tab": "API Configuration"}))
 
-# --- TAB: CONNECTIONS ---
+# --- Module Tabs ---
 elif selected_tab == "Connections":
     from modules.connections import streamlit_page as connections_page
     connections_page.render()
 
-# --- TAB: QUERY OPTIMIZER ---
 elif selected_tab == "Query Optimizer":
     conn_name = st.session_state.active_connection_name
     conn_dict = st.session_state.snowflake_connections.get(conn_name)
@@ -160,21 +169,20 @@ elif selected_tab == "Query Optimizer":
     else:
         st.warning("Please set an active Snowflake connection.")
 
-# --- TAB: API CONFIGURATION ---
 elif selected_tab == "API Configuration":
     api_config.render()
 
-# --- PLACEHOLDER TABS ---
 elif selected_tab == "Anomaly Detection":
-     conn_name = st.session_state.active_connection_name
-     conn_dict = st.session_state.snowflake_connections.get(conn_name)
-     if conn_dict:
+    conn_name = st.session_state.active_connection_name
+    conn_dict = st.session_state.snowflake_connections.get(conn_name)
+    if conn_dict:
         anomaly_detection.render(conn_dict)
-     else:
+    else:
         st.error("❌ No active Snowflake connection. Please connect from the 'Connections' tab.")
 
 elif selected_tab == "Cost Forecasting":
     st.info("Cost Forecasting module is under development.")
+
 elif selected_tab == "Stale table detection":
     conn_name = st.session_state.active_connection_name
     conn_dict = st.session_state.snowflake_connections.get(conn_name)
@@ -183,9 +191,7 @@ elif selected_tab == "Stale table detection":
     else:
         st.error("❌ No active Snowflake connection. Please connect from the 'Connections' tab.")
 
-
-
-# --- FOOTER ---
+# --- Footer ---
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; font-size: 13px; color: gray;'>"
